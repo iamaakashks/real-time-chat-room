@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -14,13 +13,18 @@ const wss = new WebSocket.Server({ server });
 // In-memory storage for channels and users
 const channels = {};
 
+// Send a message to a single client
+function send(ws, message) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+  }
+}
+
 // Broadcast to all clients in a channel
 function broadcast(channel, message) {
   if (channels[channel]) {
     channels[channel].forEach(client => {
-      if (client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(JSON.stringify(message));
-      }
+      send(client.ws, message);
     });
   }
 }
@@ -42,13 +46,11 @@ wss.on('connection', (ws) => {
             channels[currentChannel] = [];
           }
 
-          // Store user info on the client connection
           const clientInfo = { ws, nick: userNick };
           channels[currentChannel].push(clientInfo);
 
           console.log(`User ${userNick} joined channel ${currentChannel}`);
 
-          // Notify others in the channel
           broadcast(currentChannel, {
             cmd: 'online',
             nicks: channels[currentChannel].map(c => c.nick)
@@ -62,12 +64,45 @@ wss.on('connection', (ws) => {
 
         case 'chat':
           if (currentChannel && userNick) {
-            console.log(`Message from ${userNick} in ${currentChannel}: ${data.text}`);
-            broadcast(currentChannel, {
-              cmd: 'chat',
-              nick: userNick,
-              text: data.text,
-            });
+            const text = data.text;
+            // Check for whisper command
+            if (text.startsWith('/w ') || text.startsWith('/whisper ')) {
+              const match = text.match(/^\/(?:w|whisper)\s+([^\s]+)\s+(.*)/);
+              if (match) {
+                const targetNick = match[1];
+                const whisperText = match[2];
+                const targetClient = channels[currentChannel].find(c => c.nick === targetNick);
+
+                if (targetClient) {
+                  // Send to target
+                  send(targetClient.ws, {
+                    cmd: 'whisper',
+                    from: userNick,
+                    to: targetNick,
+                    text: whisperText
+                  });
+                  // Send confirmation to sender
+                  send(ws, {
+                    cmd: 'whisper',
+                    from: 'You',
+                    to: targetNick,
+                    text: whisperText
+                  });
+                } else {
+                  send(ws, {
+                    cmd: 'info',
+                    text: `User "${targetNick}" not found in this channel.`
+                  });
+                }
+              }
+            } else {
+              // Public message
+              broadcast(currentChannel, {
+                cmd: 'chat',
+                nick: userNick,
+                text: data.text,
+              });
+            }
           }
           break;
 
@@ -83,16 +118,13 @@ wss.on('connection', (ws) => {
     if (currentChannel && userNick) {
       console.log(`User ${userNick} left channel ${currentChannel}`);
 
-      // Remove user from channel
       channels[currentChannel] = channels[currentChannel].filter(
         client => client.nick !== userNick
       );
 
-      // If channel is empty, delete it
       if (channels[currentChannel].length === 0) {
         delete channels[currentChannel];
       } else {
-        // Notify remaining users
         broadcast(currentChannel, {
             cmd: 'info',
             text: `${userNick} has left the channel.`

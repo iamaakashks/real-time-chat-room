@@ -75,6 +75,18 @@ body {
     margin-bottom: 1rem;
 }
 
+.whisper-message {
+    background-color: #fffde7; /* A light yellow background */
+    border-left: 3px solid #fbc02d; /* A yellow border */
+    padding: 0.5rem 1rem;
+    border-radius: 3px;
+}
+
+.whisper-message .nick {
+    color: #6d5b00;
+    font-style: italic;
+}
+
 #chat-form {
     display: flex;
     padding: 1rem;

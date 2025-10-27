@@ -40,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'chat':
                     addChatMessage(data.nick, data.text);
                     break;
+                case 'whisper':
+                    addWhisperMessage(data.from, data.to, data.text);
+                    break;
                 case 'info':
                     addInfoMessage(data.text);
                     break;
@@ -68,6 +71,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const nickElement = document.createElement('div');
         nickElement.classList.add('nick');
         nickElement.textContent = senderNick;
+
+        const textElement = document.createElement('div');
+        textElement.classList.add('text');
+        textElement.textContent = text;
+
+        messageElement.appendChild(nickElement);
+        messageElement.appendChild(textElement);
+        messages.appendChild(messageElement);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function addWhisperMessage(from, to, text) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', 'whisper-message');
+
+        const nickElement = document.createElement('div');
+        nickElement.classList.add('nick');
+        nickElement.textContent = `Whisper from ${from} to ${to}`;
 
         const textElement = document.createElement('div');
         textElement.classList.add('text');
